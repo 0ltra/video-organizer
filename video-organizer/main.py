@@ -1,10 +1,21 @@
+import argparse
 import re
-import sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
-folder = Path(sys.argv[1]).expanduser()
+parser = argparse.ArgumentParser(
+    description="Scan a folder for video files and flag likely duplicate/versioned exports."
+)
+parser.add_argument("folder", help="Folder to scan")
+parser.add_argument(
+    "--dry-run",
+    action="store_true",
+    help="Show what would be deleted, without deleting anything",
+)
+args = parser.parse_args()
+
+folder = Path(args.folder).expanduser()
 video_extensions = {".mp4", ".mov", ".avi", ".mkv"}
 
 
@@ -24,10 +35,20 @@ for file in folder.rglob("*"):
 
 for base, files in groups.items():
     if len(files) > 1:
-        print(f"\nPossible duplicate group: '{base}'")
-        # sort newest first
         files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
-        for i, f in enumerate(files):
+        newest = files[0]
+        older = files[1:]
+
+        print(f"\nPossible duplicate group: '{base}'")
+        modified = datetime.fromtimestamp(newest.stat().st_mtime)  # noqa: DTZ006
+        print(f"  KEEP:   {newest.name} — modified {modified:%Y-%m-%d}")
+
+        for f in older:
             modified = datetime.fromtimestamp(f.stat().st_mtime)  # noqa: DTZ006
-            tag = "  ← newest" if i == 0 else ""
-            print(f"  {f.name} — modified {modified:%Y-%m-%d}{tag}")
+            if args.dry_run:
+                print(f"  WOULD DELETE: {f.name} — modified {modified:%Y-%m-%d}")
+            else:
+                print(f"  older:  {f.name} — modified {modified:%Y-%m-%d}")
+
+if not args.dry_run:
+    print("\n(Run with --dry-run to preview what would be deleted)")
