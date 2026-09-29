@@ -8,17 +8,19 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-# Config
-VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
-SAMPLE_SIZE = 1024 * 1024  # 1 MB sampled from start/middle/end for hashing
-VERSION_PATTERN = re.compile(r"(_|\s)?(v\d+|final\d*|FINAL\d*|copy)", re.IGNORECASE)
-REVIEW_FOLDER_NAME = "_review"
-MAX_WORKERS = 8  # number of files to hash concurrently
+# --- Default config (used if config.json is missing or incomplete) ---
+DEFAULT_CONFIG = {
+    "video_extensions": [".mp4", ".mov", ".avi", ".mkv"],
+    "version_pattern": r"(_|\s)?(v\d+|final\d*|FINAL\d*|copy)",
+    "review_folder_name": "_review",
+    "max_workers": 8,
+    "sample_size_mb": 1,
+}
 
 
 def get_base_name(name):
     """Strip common version markers to find a file's 'base' name for grouping."""
-    return VERSION_PATTERN.sub("", name).strip().lower()
+    return re.sub(DEFAULT_CONFIG["version_pattern"], "", name).strip().lower()
 
 
 def quick_hash(file_path):
@@ -29,12 +31,12 @@ def quick_hash(file_path):
 
     try:
         with open(file_path, "rb") as f:
-            hasher.update(f.read(SAMPLE_SIZE))
-            if size > SAMPLE_SIZE * 3:
+            hasher.update(f.read(DEFAULT_CONFIG["sample_size_mb"] * 1024 * 1024))
+            if size > DEFAULT_CONFIG["sample_size_mb"] * 1024 * 1024 * 3:
                 f.seek(size // 2)
-                hasher.update(f.read(SAMPLE_SIZE))
-                f.seek(max(size - SAMPLE_SIZE, 0))
-                hasher.update(f.read(SAMPLE_SIZE))
+                hasher.update(f.read(DEFAULT_CONFIG["sample_size_mb"] * 1024 * 1024))
+                f.seek(max(size - DEFAULT_CONFIG["sample_size_mb"] * 1024 * 1024, 0))
+                hasher.update(f.read(DEFAULT_CONFIG["sample_size_mb"] * 1024 * 1024))
     except (OSError, PermissionError) as e:
         print(
             f"  Warning: couldn't read {file_path.name} ({e}), skipping",
@@ -50,7 +52,7 @@ def scan_video_files(folder):
     return [
         f
         for f in folder.rglob("*")
-        if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
+        if f.is_file() and f.suffix.lower() in DEFAULT_CONFIG["video_extensions"]
     ]
 
 
@@ -62,7 +64,7 @@ def group_by_content(video_files, parallel=True):
     groups = defaultdict(list)
 
     if parallel and len(video_files) > 1:
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        with ThreadPoolExecutor(max_workers=DEFAULT_CONFIG["max_workers"]) as executor:
             hashes = list(executor.map(quick_hash, video_files))
     else:
         hashes = [quick_hash(f) for f in video_files]
@@ -108,14 +110,14 @@ def report_groups(groups, label):
 def apply_moves(files, folder, dry_run, apply):
     if not files:
         return
-    review_folder = folder / REVIEW_FOLDER_NAME
+    review_folder = folder / DEFAULT_CONFIG["review_folder_name"]
 
     if apply:
         review_folder.mkdir(exist_ok=True)
         for f in files:
             try:
                 shutil.move(str(f), str(review_folder / f.name))
-                print(f"  MOVED: {f.name} → {REVIEW_FOLDER_NAME}/")
+                print(f"  MOVED: {f.name} → {DEFAULT_CONFIG['review_folder_name']}/")
             except (OSError, PermissionError) as e:
                 print(f"  ERROR moving {f.name}: {e}", file=sys.stderr)
     elif dry_run:
@@ -123,7 +125,7 @@ def apply_moves(files, folder, dry_run, apply):
             print(f"  WOULD MOVE: {f.name}")
     else:
         print(
-            f"\n(Run with --dry-run to preview, or --apply to move flagged files into {REVIEW_FOLDER_NAME}/)"
+            f"\n(Run with --dry-run to preview, or --apply to move flagged files into {DEFAULT_CONFIG['review_folder_name']}/)"
         )
 
 

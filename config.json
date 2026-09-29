@@ -1,0 +1,7 @@
+{
+  "video_extensions": [".mp4", ".mov", ".avi", ".mkv"],
+  "version_pattern": "(_|\\s)?(v\\d+|final\\d*|FINAL\\d*|copy)",
+  "review_folder_name": "_review",
+  "max_workers": 8,
+  "sample_size_mb": 1
+}
