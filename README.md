@@ -1,6 +1,6 @@
 # Video Organizer
 
-A CLI tool that scans a folder full of video exports and flags the clutter — duplicate files and old versions — so you're not manually hunting through `project_v1.mp4`, `project_v2.mp4`, and `project_FINAL2.mov` trying to remember which one actually matters.
+A CLI tool that scans a folder full of video exports and flags the clutter (duplicate files and old versions) so you're not manually hunting through `project_v1.mp4`, `project_v2.mp4`, and `project_FINAL2.mov` trying to remember which one actually matters.
 
 ## What it does
 
